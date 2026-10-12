@@ -71,6 +71,12 @@ Example:
         help="Expose game via public Ngrok tunnel (requires NGROK_AUTHTOKEN and ngrok).",
     )
     parser.add_argument(
+        "--verify-artifact",
+        type=str,
+        default=None,
+        help="Re-verify an existing run artifact in isolated Docker sandbox and re-export reports.",
+    )
+    parser.add_argument(
         "--version",
         action="version",
         version="Agentic Game Studio v1.0.0",
@@ -82,6 +88,26 @@ def run_cli(args_list: Optional[list] = None) -> int:
     """Run CLI entrypoint with given arguments. Returns process exit code."""
     parser = create_parser()
     args = parser.parse_args(args_list)
+
+    # 0. Optional Artifact Re-verification Gate
+    if args.verify_artifact:
+        from pathlib import Path
+        target_dir = Path(args.verify_artifact)
+        if not target_dir.exists():
+            sys.stderr.write(f"Error: Artifact path '{target_dir}' does not exist.\n")
+            return 1
+        print("=" * 70)
+        print(" Agentic Game Studio — Artifact Verification & Re-export")
+        print("=" * 70)
+        print(f"[*] Target Artifact: {target_dir}")
+        try:
+            from studio.exporter import verify_and_reexport_artifact
+            exported = verify_and_reexport_artifact(target_dir)
+            print(f"[+] Successfully verified and regenerated reports in: {exported}")
+            return 0
+        except Exception as exc:
+            sys.stderr.write(f"Error during verification: {exc}\n")
+            return 1
 
     # 1. Validate Game Prompt Input
     if not args.prompt or not args.prompt.strip():

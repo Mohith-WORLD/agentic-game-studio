@@ -71,7 +71,7 @@ class DockerExecutor(BaseExecutor):
                 ["docker", "info"],
                 capture_output=True,
                 text=True,
-                timeout=3,
+                timeout=10,
             )
             return res.returncode == 0
         except Exception:

@@ -5,9 +5,9 @@ Unit tests for the execution sandbox interface and isolation boundaries.
 from sandbox.executor import DockerExecutor, MockExecutor
 
 
-def test_docker_executor_reports_not_tested_when_docker_unavailable():
+def test_docker_executor_reports_not_tested_when_docker_unavailable(monkeypatch):
+    monkeypatch.setattr(DockerExecutor, "is_docker_available", staticmethod(lambda: False))
     executor = DockerExecutor()
-    # Docker is not installed on this host
     assert executor.is_docker_available() is False
 
     result = executor.run(

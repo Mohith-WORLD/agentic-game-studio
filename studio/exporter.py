@@ -11,6 +11,8 @@ from pathlib import Path
 import re
 from typing import Any, Dict, Optional
 
+from sandbox.executor import BaseExecutor, DockerExecutor
+from sandbox.validator import validate_python_code
 from studio.orchestrator import StudioResult
 
 
@@ -91,6 +93,8 @@ def export_artifacts(
             "status": result.execution_result.status,
             "isolation_backend": result.execution_result.isolation_backend,
             "returncode": result.execution_result.returncode,
+            "stdout": result.execution_result.stdout,
+            "stderr": result.execution_result.stderr,
             "frames_rendered": result.execution_result.frames_rendered,
             "notes": result.execution_result.notes,
         },
@@ -255,3 +259,89 @@ def _generate_execution_log(
     ])
 
     return "\n".join(lines) + "\n"
+
+
+def verify_and_reexport_artifact(
+    run_dir: Any,
+    executor: Optional[Any] = None,
+    smoke_frames: int = 60,
+    timeout_seconds: int = 15,
+) -> Path:
+    """
+    Reproducibly re-verifies an existing run artifact using an isolated executor,
+    and updates qa_report.json, execution.log, and README.md directly from
+    the genuine ExecutionResult and ValidationResult evidence.
+    """
+    run_path = Path(run_dir).resolve()
+    game_file = run_path / "game.py"
+    if not game_file.exists():
+        raise FileNotFoundError(f"Cannot verify artifact: {game_file} does not exist.")
+
+    code = game_file.read_text(encoding="utf-8")
+    design_file = run_path / "design.md"
+    design_content = design_file.read_text(encoding="utf-8") if design_file.exists() else ""
+
+    qa_json = run_path / "qa_report.json"
+    qa_data = {}
+    if qa_json.exists():
+        try:
+            with open(qa_json, "r", encoding="utf-8") as f:
+                qa_data = json.load(f)
+        except Exception:
+            qa_data = {}
+
+    game_prompt = qa_data.get("prompt", "Generated Game")
+    run_id = qa_data.get("run_id", run_path.name)
+    existing_repairs = qa_data.get("repair_attempts", 0)
+    max_repairs = qa_data.get("max_repair_attempts", 2)
+    repair_history = qa_data.get("repair_history", [])
+    qa_audit_report = qa_data.get("qa_audit_report", "")
+
+    # 1. Deterministic Static Validation
+    val_result = validate_python_code(code)
+
+    # 2. Real Execution Boundary
+    active_executor = executor or DockerExecutor()
+    exec_result = active_executor.run(
+        code=code,
+        smoke_frames=smoke_frames,
+        timeout_seconds=timeout_seconds,
+    )
+
+    success = val_result.is_valid and exec_result.status in ("PASS", "NOT_TESTED")
+    if success and exec_result.status == "PASS":
+        status_summary = (
+            f"VERIFIED: Code passed deterministic static AST validation and executed "
+            f"cleanly for {exec_result.frames_rendered} frames inside the isolated {exec_result.isolation_backend} sandbox."
+        )
+    elif success and exec_result.status == "NOT_TESTED":
+        status_summary = (
+            "STATICALLY_VALID_EXECUTION_UNTESTED: Code passed deterministic static AST checks, "
+            "but runtime execution was NOT_TESTED because Docker isolation is unavailable on this host."
+        )
+    else:
+        status_summary = (
+            f"FAILED: Static Valid: {val_result.is_valid}, Execution: {exec_result.status}. "
+            f"{exec_result.notes}"
+        )
+
+    studio_result = StudioResult(
+        success=success,
+        game_design=design_content,
+        source_code=code,
+        validation_result=val_result,
+        execution_result=exec_result,
+        repair_attempts=existing_repairs,
+        max_repair_attempts=max_repairs,
+        repair_history=repair_history,
+        qa_report=qa_audit_report,
+        status_summary=status_summary,
+    )
+
+    return export_artifacts(
+        result=studio_result,
+        game_prompt=game_prompt,
+        base_dir=str(run_path.parent),
+        run_id=run_id,
+    )
+

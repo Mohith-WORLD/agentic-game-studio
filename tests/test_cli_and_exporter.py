@@ -266,3 +266,71 @@ def test_cli_end_to_end_mocked_success(tmp_path, capsys, monkeypatch, dummy_succ
     assert len(exported_dirs) == 1
     assert (exported_dirs[0] / "game.py").exists()
     assert (exported_dirs[0] / "qa_report.json").exists()
+
+
+# =========================================================================
+# 8. Reproducible Artifact Re-Verification Tests
+# =========================================================================
+
+def test_verify_and_reexport_artifact_reproducible(tmp_path, dummy_success_result):
+    from studio.exporter import verify_and_reexport_artifact
+    from sandbox.executor import MockExecutor
+
+    # Initially export an unverified run
+    export_dir = export_artifacts(
+        result=dummy_success_result,
+        game_prompt="Pong",
+        base_dir=str(tmp_path),
+        run_id="run_repro_test",
+    )
+
+    mock_exec = MockExecutor(
+        simulated_status="PASS",
+        simulated_stdout="Rendered 60 frames cleanly.",
+        simulated_returncode=0,
+        frames=60,
+    )
+
+    re_exported = verify_and_reexport_artifact(
+        run_dir=export_dir,
+        executor=mock_exec,
+    )
+
+    assert re_exported == export_dir
+
+    # Inspect generated JSON
+    with open(export_dir / "qa_report.json", "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    assert data["runtime_execution_status"] == "PASS"
+    assert data["game_verified"] is True
+    assert data["runtime_execution"]["status"] == "PASS"
+    assert data["runtime_execution"]["isolation_backend"] == "mock"
+    assert data["runtime_execution"]["returncode"] == 0
+    assert data["runtime_execution"]["stdout"] == "Rendered 60 frames cleanly."
+    assert data["runtime_execution"]["frames_rendered"] == 60
+
+    # Inspect generated README
+    readme = (export_dir / "README.md").read_text(encoding="utf-8")
+    assert "VERIFIED (PASS)" in readme
+    assert "`PASS`" in readme
+
+
+def test_cli_verify_artifact_flag(tmp_path, capsys, dummy_success_result):
+    from sandbox.executor import MockExecutor
+
+    export_dir = export_artifacts(
+        result=dummy_success_result,
+        game_prompt="Pong",
+        base_dir=str(tmp_path),
+        run_id="run_cli_verify_test",
+    )
+
+    with patch("studio.exporter.DockerExecutor", return_value=MockExecutor()):
+        exit_code = run_cli(["--verify-artifact", str(export_dir)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Artifact Verification & Re-export" in captured.out
+    assert "Successfully verified and regenerated reports" in captured.out
+

@@ -104,8 +104,9 @@ class SequentialMockExecutor(MockExecutor):
 # 1. Successful Orchestration Tests
 # =========================================================================
 
-def test_successful_orchestration_with_docker_unavailable():
+def test_successful_orchestration_with_docker_unavailable(monkeypatch):
     """Verify happy path when Docker is unavailable: reports NOT_TESTED and succeeds statically."""
+    monkeypatch.setattr(DockerExecutor, "is_docker_available", staticmethod(lambda: False))
     mock_runner = MockTaskRunner(developer_responses=[f"```python\n{VALID_GAME_CODE}\n```"])
     # Real DockerExecutor fail-closes to NOT_TESTED when docker is missing on host
     orchestrator = StudioOrchestrator(
@@ -306,8 +307,9 @@ def test_missing_api_credentials_raises_value_error():
 # 6. QA Report Accuracy and Status Distinctions (PASS, FAIL, NOT_TESTED)
 # =========================================================================
 
-def test_qa_task_receives_accurate_empirical_status_not_tested():
+def test_qa_task_receives_accurate_empirical_status_not_tested(monkeypatch):
     """Verify QA task prompt accurately specifies NOT_TESTED when Docker is missing."""
+    monkeypatch.setattr(DockerExecutor, "is_docker_available", staticmethod(lambda: False))
     mock_runner = MockTaskRunner(developer_responses=[f"```python\n{VALID_GAME_CODE}\n```"])
     orchestrator = StudioOrchestrator(
         settings=Settings(gemini_api_key="test-key"),
@@ -360,8 +362,9 @@ def test_qa_task_receives_accurate_empirical_status_fail():
     assert "Static AST Validation: FAILED" in qa_task.description
 
 
-def test_studio_result_serialization():
+def test_studio_result_serialization(monkeypatch):
     """Verify StudioResult.to_dict formats all empirical metrics accurately."""
+    monkeypatch.setattr(DockerExecutor, "is_docker_available", staticmethod(lambda: False))
     mock_runner = MockTaskRunner(developer_responses=[f"```python\n{VALID_GAME_CODE}\n```"])
     orchestrator = StudioOrchestrator(
         settings=Settings(gemini_api_key="test-key"),

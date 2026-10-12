@@ -6,7 +6,7 @@
 [![LLM](https://img.shields.io/badge/Google%20Gemini-2.5%20Flash-4285F4?style=flat&logo=google&logoColor=white)](https://ai.google.dev/)
 [![Pygame](https://img.shields.io/badge/Pygame-2D%20Engine-brightgreen?style=flat)](https://www.pygame.org/)
 [![Docker](https://img.shields.io/badge/Docker-Fail--Closed%20Sandbox-2496ED?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
-[![Testing](https://img.shields.io/badge/Tests-49%20Passing-success?style=flat&logo=pytest&logoColor=white)](https://docs.pytest.org/)
+[![Testing](https://img.shields.io/badge/Tests-51%20Passing-success?style=flat&logo=pytest&logoColor=white)](https://docs.pytest.org/)
 
 ---
 
@@ -264,7 +264,24 @@ The studio explicitly separates workflow completion from runtime verification:
 }
 ```
 
-> **Integrity Note**: `game_verified` is strictly `false` whenever execution is `NOT_TESTED`. The studio never claims a game is verified when only static AST checks have passed.
+When execution is verified in Docker, the report records:
+```json
+{
+  "runtime_execution_status": "PASS",
+  "game_verified": true,
+  "runtime_execution": {
+    "status": "PASS",
+    "isolation_backend": "docker",
+    "returncode": 0,
+    "stdout": "pygame 2.6.1 (SDL 2.28.4, Python 3.11.17)...",
+    "stderr": "",
+    "frames_rendered": 60,
+    "notes": "Docker container smoke-test passed cleanly (60 frames)."
+  }
+}
+```
+
+> **Integrity Note**: `game_verified` is strictly `false` whenever execution is `NOT_TESTED`. The studio never claims a game is verified when only static AST checks have passed. Even when `PASS` is recorded, verification confirms container initialization and deterministic headless frame completion, not full interactive playability.
 
 ---
 
@@ -301,7 +318,7 @@ docker run --rm \
 
 ## 11. Testing & Verification
 
-The test suite contains **49 automated offline tests** executing across 6 test modules:
+The test suite contains **51 automated offline tests** executing across 6 test modules:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -v
@@ -312,24 +329,24 @@ The test suite contains **49 automated offline tests** executing across 6 test m
 - **Static Validation (`test_validator.py`)**: 5 tests verifying AST parsing, dual-runtime checks, smoke-test detection, and prohibited module blacklisting.
 - **Executor Interface (`test_executor.py`)**: 3 tests verifying fail-closed Docker absence behavior and mock execution.
 - **Self-Repair Controller (`test_orchestrator.py`)**: 13 tests verifying successful orchestration, static error repair, runtime failure repair, timeout repair, retry limit cap enforcement (max 2), missing API keys, and QA status grounding.
-- **CLI & Artifacts (`test_cli_and_exporter.py`)**: 14 tests verifying argument validation, `--max-repairs` bounds, atomic directory exports, failed run tolerance, and JSON serialization.
+- **CLI & Artifacts (`test_cli_and_exporter.py`)**: 16 tests verifying argument validation, `--max-repairs` bounds, atomic directory exports, failed run tolerance, JSON serialization, and reproducible artifact re-verification.
 - **Delivery & Sandboxing (`test_delivery_and_sandbox.py`)**: 11 tests verifying Dockerfile constraints, container CLI flags, timeout handling, Pygbag checks, and Ngrok token protection.
 
 ---
 
 ## 12. Verification Status & Known Limitations
 
-To maintain strict engineering transparency, capabilities and results are categorized by verification level:
+To maintain strict engineering transparency, capabilities and results are categorized across four distinct verification tiers:
 
-### Verified via Automated Tests (49 Offline Tests Passed)
-- [x] **49 automated offline tests** passed across 6 test modules (`pytest -v`).
-- [x] **Deterministic Static AST Parsing**: 27 unit tests verifying syntax analysis, dual-runtime async loop requirement, smoke-test hook detection, and prohibited module blacklisting.
-- [x] **Deterministic Self-Repair Controller**: 22 mocked integration tests verifying closed-loop repair with traceback injection and strict bounding to $\le 2$ repair cycles.
-- [x] **Atomic Multi-File Exporter**: Verified schema compliance, run isolation, and clean handling of incomplete/failed runs.
+### Tier 1: Verified via Automated Tests (51 Offline Tests Passed)
+- [x] **51 automated offline tests** passed across 6 test modules (`pytest -v`).
+- [x] **Deterministic Static AST Parsing**: Syntax analysis, dual-runtime async loop requirement, smoke-test hook detection, and prohibited module blacklisting.
+- [x] **Deterministic Self-Repair Controller**: Closed-loop repair with traceback injection and strict bounding to $\le 2$ repair cycles.
+- [x] **Atomic Multi-File Exporter & Re-Verification**: Verified schema compliance, run isolation, and reproducible re-export directly from runtime `ExecutionResult`.
 - [x] **Fail-Closed Docker Absence Detection**: Verified fallback to `status="NOT_TESTED"` when Docker daemon is unreachable.
 - [x] **CLI Constraints & Credential Shielding**: Verified argument validation and strict masking of API keys and tunnel tokens.
 
-### Verified Live End-to-End Pipeline
+### Tier 2: Verified Live Multi-Agent Generation
 - [x] **Live Google Gemini API Connectivity**: Direct API ping against `gemini-2.5-flash` using official Google GenAI SDK succeeded with active credentials.
 - [x] **Live Multi-Agent CrewAI Generation**: Successfully executed a full end-to-end generation run via CLI in the isolated project-local `.venv`:
   - **Creative Game Designer**: Produced the complete *Cosmic Rally* 2D Pong-style game specification (`design.md`) with paddles, bouncing ball mechanics, score HUD, and a first-to-five win condition.
@@ -339,7 +356,47 @@ To maintain strict engineering transparency, capabilities and results are catego
   - **QA Engineer & Code Auditor**: Performed structured review assessing design fidelity and recording empirical validation status.
   - **Complete Artifact Export**: Successfully generated all 5 expected output artifacts (`game.py`, `design.md`, `README.md`, `qa_report.json`, `execution.log`).
 
-### Empirical Boundaries & Pending Live Verification
-- [ ] **Live Docker Sandbox Daemon (`NOT_TESTED`)**: The test host does not have a running Docker daemon (`docker` command unavailable). In accordance with the project's strict fail-closed security policy, arbitrary AI-generated code was **NOT** executed directly on the host machine. **Actual runtime game execution remains strictly `NOT_TESTED`, and the game is NOT marked as verified or proven playable.**
+### Tier 3: Verified Isolated Docker Headless Smoke Testing
+- [x] **Isolated Container Execution**: The generated *Cosmic Rally* (`artifacts/run_20261012_214557_a_simple_pong_game/game.py`) was executed inside the dedicated sandbox container (`agentic-game-sandbox:latest`):
+  - **Isolation Constraints**: `--network none`, `--user 1000:1000` (non-root), `--memory 512m`, `--cpus 1.0`, read-only volume bind (`:ro`), headless dummy SDL drivers (`SDL_VIDEODRIVER=dummy`, `SDL_AUDIODRIVER=dummy`).
+  - **Smoke Test Hook**: The game recognized `SMOKE_TEST=1` and `SMOKE_TEST_FRAMES=60`, executed cleanly for **60 frames**, and exited with **exit code 0**.
+  - **Environment Distinction**:
+    - **Standard Docker CLI**: On standard developer setups (Linux, macOS, or Windows with Docker Desktop), `docker` is available natively on the system PATH and requires no custom bridge.
+    - **Test Verification Environment**: On this Windows host, Docker Engine (v29.1.3) was run inside a WSL 2 Ubuntu environment. A local, untracked compatibility wrapper in `~/.local/bin/` translated Windows drive paths (`C:\...` to `/mnt/c/...`) and forwarded CLI invocations to the WSL daemon. No custom binaries or host-specific paths are tracked in Git.
+
+#### How to Reproduce Docker Container Execution
+Any user on Linux, macOS, or Windows with Docker Desktop or Docker Engine installed can reproduce this test independently:
+
+1. **Build the Sandbox Image**:
+   ```bash
+   docker build -t agentic-game-sandbox:latest .
+   ```
+
+2. **Run Headless Smoke Test via CLI**:
+   ```bash
+   python main.py --verify-artifact artifacts/run_20261012_214557_a_simple_pong_game
+   ```
+
+3. **Or Run Directly via Docker**:
+   ```bash
+   docker run --rm \
+     --network none \
+     --user 1000:1000 \
+     --memory 512m \
+     --cpus 1.0 \
+     --env SDL_VIDEODRIVER=dummy \
+     --env SDL_AUDIODRIVER=dummy \
+     --env SMOKE_TEST=1 \
+     --env SMOKE_TEST_FRAMES=60 \
+     -v "$(pwd)/artifacts/run_20261012_214557_a_simple_pong_game/game.py:/workspace/game.py:ro" \
+     agentic-game-sandbox:latest \
+     python /workspace/game.py
+   ```
+
+### Tier 4: Empirical Boundaries & Known Limitations
+- [ ] **Full Interactive Gameplay Verification (`NOT PROVEN PLAYABLE`)**: 
+  > [!IMPORTANT]
+  > Passing a 60-frame headless smoke test proves that the generated code initializes Pygame without crashing, defines all necessary variables, executes the game loop for 60 iterations, and exits cleanly with code 0.
+  > **It does NOT prove that the game is fully playable or fun.** The smoke test does not simulate human keyboard input over a full match, verify collision precision, test edge-case physics, or evaluate game balance. Interactive playability remains unverified until manually tested by a human player.
 - [ ] **Live Pygbag Web Builds & Ngrok Tunnels (`NOT_TESTED`)**: While `pygbag` and `pyngrok` dependencies are installed in the project-local `.venv` (and CLI fallback detection is unit-tested), compiling a live browser bundle (`--web`) and creating a public tunnel (`--share`) remain unverified pending explicit authorization.
 

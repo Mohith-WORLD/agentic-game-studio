@@ -16,6 +16,7 @@ import pygame
 async def main():
     pygame.init()
     smoke_test = os.getenv("SMOKE_TEST") == "1"
+    await asyncio.sleep(0)
     pygame.quit()
     return 0
 

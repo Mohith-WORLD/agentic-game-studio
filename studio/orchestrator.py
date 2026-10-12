@@ -76,6 +76,8 @@ class StudioResult:
                 "status": self.execution_result.status,
                 "isolation_backend": self.execution_result.isolation_backend,
                 "returncode": self.execution_result.returncode,
+                "stdout": self.execution_result.stdout,
+                "stderr": self.execution_result.stderr,
                 "frames_rendered": self.execution_result.frames_rendered,
                 "notes": self.execution_result.notes,
             },
