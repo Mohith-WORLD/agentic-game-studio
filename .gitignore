@@ -1,0 +1,38 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment files and credentials
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# Virtual environments
+.venv/
+env/
+venv/
+ENV/
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Generated game artifacts and build bundles
+artifacts/
+build/
+dist/
+*.egg-info/
+
+# Pygbag web output
+web/
+
+# Logs
+*.log
+
+# IDE specific
+.vscode/
+.idea/
