@@ -66,9 +66,9 @@ class Settings:
 def load_settings(env_path: Optional[str] = None) -> Settings:
     """Load settings from environment variables and optional .env file."""
     if env_path and os.path.exists(env_path):
-        load_dotenv(dotenv_path=env_path, override=True)
+        load_dotenv(dotenv_path=env_path, override=False)
     else:
-        load_dotenv(override=True)
+        load_dotenv(override=False)
 
     gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     ngrok_token = os.getenv("NGROK_AUTHTOKEN")

@@ -150,14 +150,15 @@ agentic-game-studio/
 Open PowerShell in your working directory:
 
 ```powershell
-# Navigate into project directory
+# Clone repository and enter project directory
+git clone https://github.com/Mohith-WORLD/agentic-game-studio.git
 cd agentic-game-studio
 
 # Create virtual environment
 python -m venv .venv
 
 # Activate virtual environment
-.venv\Scripts\Activate.ps1
+.\.venv\Scripts\Activate.ps1
 
 # Upgrade pip and install dependencies
 python -m pip install --upgrade pip
@@ -303,7 +304,7 @@ docker run --rm \
 The test suite contains **49 automated offline tests** executing across 6 test modules:
 
 ```powershell
-pytest -v
+.\.venv\Scripts\python.exe -m pytest -v
 ```
 
 ### Test Coverage Breakdown
@@ -318,19 +319,27 @@ pytest -v
 
 ## 12. Verification Status & Known Limitations
 
-To maintain strict engineering transparency, capabilities are categorized by verification level:
+To maintain strict engineering transparency, capabilities and results are categorized by verification level:
 
-### Verified via Automated Tests
-- [x] Deterministic static AST parsing and syntax failure detection.
-- [x] Dual-runtime async loop requirement and smoke-test hook validation.
-- [x] Hardcoded 2-attempt self-repair controller logic.
-- [x] Error traceback injection into Developer agent repair prompt.
-- [x] Multi-file atomic artifact export and schema serialization.
-- [x] Fail-closed Docker absence detection (`status="NOT_TESTED"`).
-- [x] CLI argument validation and bounds checking (`--max-repairs` in `[0, 2]`).
-- [x] Secret masking and exclusion of credentials from logs and artifacts.
+### Verified via Automated Tests (49 Offline Tests Passed)
+- [x] **49 automated offline tests** passed across 6 test modules (`pytest -v`).
+- [x] **Deterministic Static AST Parsing**: 27 unit tests verifying syntax analysis, dual-runtime async loop requirement, smoke-test hook detection, and prohibited module blacklisting.
+- [x] **Deterministic Self-Repair Controller**: 22 mocked integration tests verifying closed-loop repair with traceback injection and strict bounding to $\le 2$ repair cycles.
+- [x] **Atomic Multi-File Exporter**: Verified schema compliance, run isolation, and clean handling of incomplete/failed runs.
+- [x] **Fail-Closed Docker Absence Detection**: Verified fallback to `status="NOT_TESTED"` when Docker daemon is unreachable.
+- [x] **CLI Constraints & Credential Shielding**: Verified argument validation and strict masking of API keys and tunnel tokens.
 
-### Pending Live Verification (Offline Tests Used Mocks)
-- [ ] **Live Google Gemini API Execution**: Unit tests use mocked task runners to prevent consuming user API credits. Live model generation requires a configured `GEMINI_API_KEY`.
-- [ ] **Live Docker Sandbox Daemon**: The test machine did not have a running Docker daemon; container command construction was verified via unit tests with mock subprocess runners.
-- [ ] **Live Pygbag Web Builds & Ngrok Tunnels**: Pygbag and ngrok were not installed globally on the test environment; CLI error handling, missing-package detection, and credential shielding were verified via unit tests.
+### Verified Live End-to-End Pipeline
+- [x] **Live Google Gemini API Connectivity**: Direct API ping against `gemini-2.5-flash` using official Google GenAI SDK succeeded with active credentials.
+- [x] **Live Multi-Agent CrewAI Generation**: Successfully executed a full end-to-end generation run via CLI in the isolated project-local `.venv`:
+  - **Creative Game Designer**: Produced the complete *Cosmic Rally* 2D Pong-style game specification (`design.md`) with paddles, bouncing ball mechanics, score HUD, and a first-to-five win condition.
+  - **Senior Python Game Developer**: Generated complete standalone Python source (`game.py`) featuring dual-runtime async loops and deterministic smoke-test hooks.
+  - **Deterministic Static AST Validation**: Code successfully passed static AST validation on the first pass (`syntax_valid=True`, `has_dual_runtime=True`, `has_smoke_test_hook=True`).
+  - **Self-Repair Controller**: Required **0 repair attempts** (`0/2` cycles used) as the generated code satisfied all static requirements immediately.
+  - **QA Engineer & Code Auditor**: Performed structured review assessing design fidelity and recording empirical validation status.
+  - **Complete Artifact Export**: Successfully generated all 5 expected output artifacts (`game.py`, `design.md`, `README.md`, `qa_report.json`, `execution.log`).
+
+### Empirical Boundaries & Pending Live Verification
+- [ ] **Live Docker Sandbox Daemon (`NOT_TESTED`)**: The test host does not have a running Docker daemon (`docker` command unavailable). In accordance with the project's strict fail-closed security policy, arbitrary AI-generated code was **NOT** executed directly on the host machine. **Actual runtime game execution remains strictly `NOT_TESTED`, and the game is NOT marked as verified or proven playable.**
+- [ ] **Live Pygbag Web Builds & Ngrok Tunnels (`NOT_TESTED`)**: While `pygbag` and `pyngrok` dependencies are installed in the project-local `.venv` (and CLI fallback detection is unit-tested), compiling a live browser bundle (`--web`) and creating a public tunnel (`--share`) remain unverified pending explicit authorization.
+
